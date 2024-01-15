@@ -47,8 +47,7 @@ function updateProps(dom, fiber) {
     });
 }
 
-function initChildren(fiber) {
-  const children = fiber.props.children;
+function initChildren(fiber, children) {
   let prevChild = null;
   children.forEach((child, index) => {
     let newFiber = {
@@ -68,21 +67,32 @@ function initChildren(fiber) {
   });
 }
 
-function preFormUnitOfWork(fiber) {
+function handleFunction(fiber) {
+  const children = [fiber.type(fiber.props)];
+  initChildren(fiber, children);
+}
+
+function handleNotFunction(fiber) {
   if (!fiber.dom) {
     const dom = (fiber.dom = createDom(fiber));
-
-    // fiber.parent.dom.appendChild(dom);
     updateProps(dom, fiber);
   }
+  const children = fiber.props.children;
+  initChildren(fiber, children);
+}
 
-  initChildren(fiber);
+function preFormUnitOfWork(fiber) {
+  const isFunction = typeof fiber.type === "function";
+  if (isFunction) handleFunction(fiber);
+  else handleNotFunction(fiber);
 
   if (fiber.child) return fiber.child;
 
-  if (fiber.sibling) return fiber.sibling;
-
-  return fiber.parent?.sibling;
+  let parentFiber = fiber;
+  while (parentFiber) {
+    if (parentFiber.sibling) return parentFiber.sibling;
+    parentFiber = parentFiber.parent;
+  }
 }
 
 function commitRoot(fiber) {
@@ -92,7 +102,13 @@ function commitRoot(fiber) {
 
 function commitWork(fiber) {
   if (!fiber) return;
-  fiber.parent.dom.append(fiber.dom);
+  let fiberParent = fiber.parent;
+  while (!fiberParent.dom) {
+    fiberParent = fiberParent.parent;
+  }
+  if (fiber.dom) {
+    fiberParent.dom.append(fiber.dom);
+  }
   commitWork(fiber.sibling);
   commitWork(fiber.child);
 }
@@ -102,7 +118,6 @@ function workLoop(deadline) {
   let flag = false;
   while (!flag && nextUnitOfWork) {
     nextUnitOfWork = preFormUnitOfWork(nextUnitOfWork);
-    console.log("第100行:", nextUnitOfWork);
     flag = deadline.timeRemaining() > 1;
   }
 
