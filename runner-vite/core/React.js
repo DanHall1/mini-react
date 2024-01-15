@@ -20,6 +20,7 @@ export function createElement(type, props, ...children) {
   };
 }
 
+let root = null;
 export function render(el, container) {
   nextUnitOfWork = {
     dom: container,
@@ -27,6 +28,7 @@ export function render(el, container) {
       children: [el],
     },
   };
+  root = nextUnitOfWork;
 }
 
 function createDom(fiber) {
@@ -70,7 +72,7 @@ function preFormUnitOfWork(fiber) {
   if (!fiber.dom) {
     const dom = (fiber.dom = createDom(fiber));
 
-    fiber.parent.dom.appendChild(dom);
+    // fiber.parent.dom.appendChild(dom);
     updateProps(dom, fiber);
   }
 
@@ -83,12 +85,29 @@ function preFormUnitOfWork(fiber) {
   return fiber.parent?.sibling;
 }
 
+function commitRoot(fiber) {
+  commitWork(fiber.child);
+  root = null;
+}
+
+function commitWork(fiber) {
+  if (!fiber) return;
+  fiber.parent.dom.append(fiber.dom);
+  commitWork(fiber.sibling);
+  commitWork(fiber.child);
+}
+
 let nextUnitOfWork = null;
 function workLoop(deadline) {
   let flag = false;
   while (!flag && nextUnitOfWork) {
     nextUnitOfWork = preFormUnitOfWork(nextUnitOfWork);
+    console.log("第100行:", nextUnitOfWork);
     flag = deadline.timeRemaining() > 1;
+  }
+
+  if (!flag && root) {
+    commitRoot(root);
   }
   requestIdleCallback(workLoop);
 }
